@@ -39,7 +39,7 @@ write_files:
   append: true
   permissions: "0644"
   owner: root:root
-  content: | 
+  content: |
     maxsize 500M
 - path: /etc/systemd/system/mnt.mount
   content: |
@@ -256,10 +256,10 @@ write_files:
     disable: rke2-ingress-nginx
     cni: "${cni}"
     node-taint:
-      - CriticalAddonsOnly=true:NoExecute  
+      - CriticalAddonsOnly=true:NoExecute
   %{ for k, v in node_taints ~}
     - "${k}=${v}"
-  %{ endfor ~}  
+  %{ endfor ~}
   node-label:
       - node.kubernetes.io/exclude-from-external-load-balancers=true
   %{ for k, v in node_labels ~}
@@ -313,15 +313,16 @@ runcmd:
       done;
       echo "$MNT mounted successfully.";
     done;
-  %{~ if is_server ~}
-  - systemctl restart systemd-modules-load.service # ensure ipvs is loaded
+%{~ if is_server ~}
+  - systemctl restart systemd-modules-load.service
   - echo 'alias kubectl="sudo /var/lib/rancher/rke2/bin/kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml"' >> /home/${system_user}/.bashrc
-  - rm -rf /var/lib/rancher/rke2/server/manifests # single-node cleanup
+  - rm -rf /var/lib/rancher/rke2/server/manifests
   - systemctl enable rke2-server.service
   - systemctl start rke2-server.service
   - until [ -d /var/lib/rancher/rke2/agent/pod-manifests/ ]; do echo "Waiting for $(hostname) static pods"; sleep 1; done
   - mv -v /opt/rke2/kube-vip.yaml /var/lib/rancher/rke2/agent/pod-manifests/kube-vip.yaml
   - ls /var/lib/rancher/rke2/agent/pod-manifests
+%{~ if bootstrap ~}
   - wget https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_amd64.tar.gz -O - | tar xz && mv yq_linux_amd64 /usr/bin/yq
   - until [ -d /var/lib/rancher/rke2/data/v*/charts ]; do echo "Waiting for $(hostname) charts data"; sleep 1; done
   - /usr/local/bin/customize-charts.sh $(realpath /var/lib/rancher/rke2/data/v*/charts)
@@ -329,9 +330,6 @@ runcmd:
   - /usr/local/bin/customize-charts.sh /var/lib/rancher/rke2/server/manifests
   - mv -v /opt/rke2/manifests/*.yaml /var/lib/rancher/rke2/server/manifests
   - ls /var/lib/rancher/rke2/server/manifests
+%{~ endif ~}
   - until systemctl is-active -q rke2-server.service; do echo "Waiting for $(hostname) rke2 to start"; sleep 3; journalctl -u rke2-server.service --since "3 second ago"; done
-  %{~ else ~}
-  - systemctl enable rke2-agent.service
-  - systemctl start rke2-agent.service
-  - until systemctl is-active -q rke2-agent.service; do echo "Waiting for $(hostname) rke2 to start"; sleep 3; journalctl -u rke2-agent.service --since "3 second ago"; done
-  %{~ endif ~}
+%{~ endif ~}

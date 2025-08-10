@@ -19,8 +19,6 @@ package_reboot_if_required: true
 packages:
   - fail2ban
   - unattended-upgrades
-  - apt-listchanges
-  - apt-transport-https
   - ncdu
   - htop
   - curl
@@ -87,6 +85,7 @@ write_files:
       curl -sfL https://get.rke2.io | sh -
     fi
 %{ if is_server ~}
+    %{~ if bootstrap ~}
     %{~ for k, v in manifests_files ~}
 - path: /opt/rke2/manifests/${k}
   permissions: "0600"
@@ -128,6 +127,7 @@ write_files:
         /usr/local/bin/customize-chart.sh "$CHARTS_DIR/$patch_name" "$patch"
       fi
     done
+    %{~ endif ~}
 - path: /etc/modules-load.d/ipvs.conf
   permissions: "0644"
   owner: root:root
@@ -316,14 +316,14 @@ runcmd:
 %{~ if is_server ~}
   - systemctl restart systemd-modules-load.service
   - echo 'alias kubectl="sudo /var/lib/rancher/rke2/bin/kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml"' >> /home/${system_user}/.bashrc
-  - rm -rf /var/lib/rancher/rke2/server/manifests
+
   - systemctl enable rke2-server.service
   - systemctl start rke2-server.service
   - until [ -d /var/lib/rancher/rke2/agent/pod-manifests/ ]; do echo "Waiting for $(hostname) static pods"; sleep 1; done
   - mv -v /opt/rke2/kube-vip.yaml /var/lib/rancher/rke2/agent/pod-manifests/kube-vip.yaml
   - ls /var/lib/rancher/rke2/agent/pod-manifests
-%{~ if bootstrap ~}
   - wget https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_amd64.tar.gz -O - | tar xz && mv yq_linux_amd64 /usr/bin/yq
+%{~ if bootstrap ~}
   - until [ -d /var/lib/rancher/rke2/data/v*/charts ]; do echo "Waiting for $(hostname) charts data"; sleep 1; done
   - /usr/local/bin/customize-charts.sh $(realpath /var/lib/rancher/rke2/data/v*/charts)
   - until [ -d /var/lib/rancher/rke2/server/manifests ]; do echo "Waiting for $(hostname) manifests"; sleep 1; done
@@ -331,5 +331,8 @@ runcmd:
   - mv -v /opt/rke2/manifests/*.yaml /var/lib/rancher/rke2/server/manifests
   - ls /var/lib/rancher/rke2/server/manifests
 %{~ endif ~}
-  - until systemctl is-active -q rke2-server.service; do echo "Waiting for $(hostname) rke2 to start"; sleep 3; journalctl -u rke2-server.service --since "3 second ago"; done
+%{~ else ~}
+  - systemctl enable rke2-agent.service
+  - systemctl start rke2-agent.service
+  - until systemctl is-active -q rke2-agent.service; do echo "Waiting for $(hostname) rke2 to start"; sleep 3; journalctl -u rke2-agent.service --since "3 second ago"; done
 %{~ endif ~}

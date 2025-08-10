@@ -313,7 +313,7 @@ runcmd:
       done;
       echo "$MNT mounted successfully.";
     done;
-%{~ if is_server ~}
+%{ if is_server }
   - systemctl restart systemd-modules-load.service
   - echo 'alias kubectl="sudo /var/lib/rancher/rke2/bin/kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml"' >> /home/${system_user}/.bashrc
 
@@ -323,16 +323,16 @@ runcmd:
   - mv -v /opt/rke2/kube-vip.yaml /var/lib/rancher/rke2/agent/pod-manifests/kube-vip.yaml
   - ls /var/lib/rancher/rke2/agent/pod-manifests
   - wget https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_amd64.tar.gz -O - | tar xz && mv yq_linux_amd64 /usr/bin/yq
-%{~ if bootstrap ~}
+%{ if bootstrap }
   - until [ -d /var/lib/rancher/rke2/data/v*/charts ]; do echo "Waiting for $(hostname) charts data"; sleep 1; done
   - /usr/local/bin/customize-charts.sh $(realpath /var/lib/rancher/rke2/data/v*/charts)
   - until [ -d /var/lib/rancher/rke2/server/manifests ]; do echo "Waiting for $(hostname) manifests"; sleep 1; done
   - /usr/local/bin/customize-charts.sh /var/lib/rancher/rke2/server/manifests
   - mv -v /opt/rke2/manifests/*.yaml /var/lib/rancher/rke2/server/manifests
   - ls /var/lib/rancher/rke2/server/manifests
-%{~ endif ~}
-%{~ else ~}
+%{ endif }
+%{ else }
   - systemctl enable rke2-agent.service
   - systemctl start rke2-agent.service
   - until systemctl is-active -q rke2-agent.service; do echo "Waiting for $(hostname) rke2 to start"; sleep 3; journalctl -u rke2-agent.service --since "3 second ago"; done
-%{~ endif ~}
+%{ endif }
